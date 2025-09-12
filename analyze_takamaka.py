@@ -1,16 +1,3 @@
-# analyze_takamaka_prev_epoch.py
-# Genera CSV e grafici per l'epoch precedente rispetto allo snapshot del file di stato.
-# Tutti gli output in: output/<timeframe>/...
-#
-# Migliorie grafiche:
-# - figure più grandi, griglia Y
-# - valori numerici sopra le barre
-# - formattazione Y con separatore migliaia
-# - padding/margini per evitare tagli
-#
-# Requisiti: python>=3.8, pandas, matplotlib
-#   pip install pandas matplotlib
-
 import json
 import sys
 import argparse
