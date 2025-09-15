@@ -1,168 +1,106 @@
-# Takamaka STATE Report — Integrated
+# Takamaka Analysis — Dashboard and PNG Export
 
-CLI tool to analyze one or more **Takamaka state snapshots** and generate tables & charts with KPIs for **main/overflow** and **node hashes**. Works with single files or directories.
+Tools to analyze a **Takamaka** state snapshot and produce charts for key metrics across main and overflow nodes.
+
+Two usage modes are included:
+
+- **PNG export** from the command line via `takamaka_dash.py`
+- **Interactive dashboard** (tabs) via `analyze_takamaka.py`
 
 ---
 
 ## Requirements
 
 - Python **3.9+**
-- Packages: `pandas`, `matplotlib`
+- Packages:
+  - `numpy`
+  - `plotly`
+  - `matplotlib` (for color conversions only)
+  - `kaleido` (required to save PNGs with Plotly)
+  - `dash` (only for the interactive dashboard)
 
-~~~bash
-pip install pandas matplotlib
-~~~
+Quick install:
 
----
-
-## Usage
-
-~~~bash
-python3 takamaka_state_report.py \
-  -i /path/to/file1.state /path/to/file2.state /path/to/dir_with_states \
-  -o ./out_report \
-  --timestamped \
-  --topn 15 \
-  --name-map ./example_name_map.csv
-~~~
-
-### Arguments
-
-- `-i, --input`
-  One or more **files** or **directories** containing:
-  - `.state`
-  - `.state.json`
-  - `.state.json.gz`
-
-- `-o, --output`
-  Output directory (e.g., `./out_report`).
-
-- `--timestamped` *(optional)*
-  Create a **timestamped** subfolder inside the output dir.
-  Example: `out_report/2025-09-11_19-25-03/…`
-
-- `--topn <int>` *(optional, default: 10)*
-  Number of items to display in charts (sorted by the relevant metric).
-
-- `--name-map <file.csv>` *(optional)*
-  CSV with columns `URL64,label` to replace Base64 IDs (`mainUrl64Addr` / `lowUrl64Addr`) with readable labels in CSVs and charts.
+```bash
+pip install numpy plotly matplotlib kaleido dash
+```
 
 ---
 
-## Outputs
+## Input data
 
-All files are saved under `OUTPUT_ROOT/(timestamp)/` (if `--timestamped`) or directly in `OUTPUT_ROOT/`.
+Both scripts read a JSON state file (e.g., `three.state`) with fields such as `epoch`, `operationalRecord`, `currentEpochSlotDistribution`, etc.
 
-### CSVs
+At the top of the code you can configure these core parameters:
 
-- **`by_nodehash.csv`**
-  Aggregation by `nodeHexSignerHash` (from `proposedKeys`) across **all found snapshots**. Useful to see how many **proposed slots/blocks** per node hash.
-
-- **`by_url64.csv`**
-  KPIs by `URL64` (main/overflow) from the **most recent snapshot**:
-  - **assigned slots** (when available),
-  - **delivered/missed blocks** (overflow),
-  - **efficiency** (e.g., `delivered / assigned` when meaningful),
-  - **coinbase/fees/frozen** (node/holder) from `urlMainRecords`,
-  - **penaltySlots** and **rates** (e.g., penalties/assigned).
-
-- **`by_url64_per_epoch.csv`** *(when multiple snapshots with different epochs exist)*
-  KPIs **per epoch**, by `URL64`, to track evolution over time.
-
-> When a metric isn’t natively available (e.g., assigned slots for past epochs), the tool may **estimate** it from `proposedKeys`. Estimated fields are marked accordingly.
-
-### Charts (PNG)
-
-- Top **main/overflow** by key KPIs (based on `--topn`), with readable labels. Examples:
-  - `penalty_slots_per_main.png`
-  - `node_rewards_per_main.png`
-  - `delivered_blocks_per_overflow.png`
-  - `stake_slots_reference.png` (if current distribution is available)
-
-### HTML Report
-
-- **`report.html`**
-  Index with links to **all outputs** (CSVs + PNGs) for quick navigation.
+- `FILENAME`: path to the `.state` file
+- `OUTPUT_DIR`: output folder for PNGs
+- `MAX_SLOT`: last slot considered (e.g., 2399)
+- `LABEL`: map `URL64 -> readable label`
+- `MAIN_ADDRS`, `OVERFLOW_ADDRS`: canonical order of addresses to display
+- `STAKE_EPOCH`, `STAKE_SLOT`, `STAKE_RAW`: stake values for main nodes (optional, used by the stake chart)
 
 ---
 
-## Optional name-map CSV
+## Mode 1 — PNG export (takamaka_dash.py)
 
-~~~csv
-URL64,label
-Be2ntZsJLQ0Kmp_KRv-281k-x5pWqnuUNNzFqsi35lQ.,main node1
-_0OHvruLBmlRlDnCEmKdxyc65hBynAxRtiuQ8BHkrkM.,overflow node1
-Lb5sLN6alt5KcdMNE74onoOuQL8Y0eYgGZKqDOAUSTU.,main node3
-~~~
+Generates three static PNG charts in `OUTPUT_DIR`:
 
-- `URL64` must **exactly match** addresses in the dump (`mainUrl64Addr` / `lowUrl64Addr`).
-- `label` is the text shown in CSVs and charts.
+- Stake per main node (uses `STAKE_*` and `STAKE_RAW`)
+- Penalty slots per main node (from `operationalRecord` at the current epoch)
+- Overflow summary: bars for delivered blocks + area with cumulative share of validated slots
 
----
+Example:
 
-## Metrics (what it measures)
+```bash
+python takamaka_dash.py
+```
 
-- **Assigned slots**
-  - **Current epoch**: from `currentEpochSlotDistribution` (if present).
-  - **Past epochs**: when not explicitly stored, may be **estimated** from `proposedKeys`.
+Expected outputs (indicative names):
 
-- **Delivered/missed blocks** (overflow)
-  - From `urlOverflowCounter.deliveredBlocks` / `missedBlocks` per epoch.
+- `output/stake_epoch_<E>_slot_<S>.png`
+- `output/penalty_slots_epoch_<E>.png`
+- `output/summary_epoch_<E>.png`
 
-- **Rewards & fees** (main)
-  - From `urlMainRecords`:
-    - `nodeCoinbase`, `holderCoinbase`
-    - `nodeRedFee`, `holderRedFee`, `nodeGreenFee`, `holderGreenFee`
-    - Frozen: `nodeRedFrozenFee`, `holderRedFrozenFee`, `nodeGreenFrozenFee`, `holderGreenFrozenFee`
+The repo includes sample images in `output/` (e.g., `penalty_slots_epoch_2.png`, `summary_epoch_3.png`).
 
-- **Penalties**
-  - `penaltySlots` for main and related rates (e.g., penalties/assigned).
+Note: PNG export requires `kaleido` to be installed.
 
 ---
 
-## Examples
+## Mode 2 — Interactive dashboard (analyze_takamaka.py)
 
-1) Report on a directory of many `.state` files:
-~~~bash
-python3 takamaka_state_report.py -i ./dumps -o ./out_report
-~~~
+Starts a **Dash** app with three tabs: Stake, Penalty Slots, Summary. These are the same charts as PNG mode but browsable in your browser.
 
-2) With label mapping and top-20 charts:
-~~~bash
-python3 takamaka_state_report.py \
-  -i ./dumps ./other/state.json.gz \
-  -o ./out_report \
-  --timestamped \
-  --topn 20 \
-  --name-map ./names.csv
-~~~
+Run:
+
+```bash
+python analyze_takamaka.py
+```
+
+By default it runs with `debug=True` at `http://127.0.0.1:8050/`.
 
 ---
 
-## Notes & Limitations
+## Metric details
 
-- Snapshots **do not always** contain full historical data (e.g., assigned slots for past epochs). In such cases:
-  - the **current distribution** is saved as a **reference**,
-  - and a **best-effort estimate** is derived from `proposedKeys` (partial if the snapshot is mid-epoch).
-- If you have **multiple snapshots** for the same epoch, the tool keeps the **latest** KPIs for that epoch.
-- If a row is not found in `--name-map`, the original `URL64` is used.
+- **Stake (main)**: values taken from `STAKE_RAW` and shown for addresses in `MAIN_ADDRS`
+- **Penalty slots (main)**: from `operationalRecord[epoch].urlMainRecords[addr].penaltySlots`
+- **Delivered blocks (overflow)**: from `operationalRecord[epoch].urlOverflowCounter[addr].deliveredBlocks`
+- **Validated slots share (overflow)**: computed over `currentEpochSlotDistribution` up to `MAX_SLOT`
+
+If a metric or address is missing from the data, it is shown as 0.
 
 ---
 
-## Troubleshooting
+## Tips and troubleshooting
 
-- **Empty or partial outputs**
-  Ensure the files include expected sections (`operationalRecord`, `proposedKeys`, `currentEpochSlotDistribution`).
-
-- **Charts with few bars**
-  Increase `--topn` or verify the KPIs actually exist in the snapshots.
-
-- **Labels not replaced**
-  Confirm the `URL64` column in your `--name-map` matches the dump addresses **exactly**.
+- If PNGs are not saved, ensure `kaleido` is installed.
+- If charts look empty or partial, check that the `.state` file contains `operationalRecord` and (for the summary) `currentEpochSlotDistribution`.
+- Update `LABEL`, `MAIN_ADDRS` and `OVERFLOW_ADDRS` to match the real addresses in your scenario.
 
 ---
 
 ## License
 
-**GNU General Public License v3.0 (GPL-3.0)** — Version 3, 29 June 2007.
-Include the full license text in a `LICENSE` file in your repository.
+This project is released under **GNU General Public License v3.0 (GPL-3.0)**. The full text is in `LICENSE`.
