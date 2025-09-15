@@ -1,4 +1,3 @@
-# takamaka_dashboard.py
 import os
 import json
 import numpy as np
@@ -40,13 +39,13 @@ PALETTE = ["#4E79A7", "#F28E2B", "#59A14F", "#E15759", "#76B7B2", "#EDC948"]
 BAR_TRSP = ["rgba(78,121,167,0.60)", "rgba(242,142,43,0.60)", "rgba(89,161,79,0.60)"]
 
 # ===== Stake static values (example @ epoch=2, slot=800) =====
-STAKE_EPOCH = 1
+STAKE_EPOCH = 2
 STAKE_SLOT  = 799
 # Put stake for mains here; missing mains default to 0
 STAKE_RAW = {
-    "Be2ntZsJLQ0Kmp_KRv-281k-x5pWqnuUNNzFqsi35lQ.": 98_999_369_600_301_770,
-    "TgLaccJovUQPjgNcU1ZsS-tYrYnuNTRtjLdVvAqg3kI.": 0,
-    "Lb5sLN6alt5KcdMNE74onoOuQL8Y0eYgGZKqDOAUSTU.": 0,
+    "Be2ntZsJLQ0Kmp_KRv-281k-x5pWqnuUNNzFqsi35lQ.": 39_720_005_019_933_334,
+    "TgLaccJovUQPjgNcU1ZsS-tYrYnuNTRtjLdVvAqg3kI.": 29_820_802_299_333_335,
+    "Lb5sLN6alt5KcdMNE74onoOuQL8Y0eYgGZKqDOAUSTU.": 29_676_465_760_160_400,
 }
 
 # =========================
