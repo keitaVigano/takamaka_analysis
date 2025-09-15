@@ -8,7 +8,7 @@ import matplotlib.colors as mcolors  # HEX -> RGBA
 # =========================
 # Config
 # =========================
-FILENAME   = "one.state"   # cambia se serve
+FILENAME   = "three.state"
 OUTPUT_DIR = "output"
 MAX_SLOT   = 2399
 
