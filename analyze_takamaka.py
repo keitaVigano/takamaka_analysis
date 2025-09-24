@@ -8,7 +8,7 @@ import matplotlib.colors as mcolors  # HEX -> RGBA
 # =========================
 # Config
 # =========================
-FILENAME   = "three.state"
+FILENAME   = "one.state"
 OUTPUT_DIR = "output"
 MAX_SLOT   = 2399
 
@@ -39,13 +39,13 @@ PALETTE = ["#4E79A7", "#F28E2B", "#59A14F", "#E15759", "#76B7B2", "#EDC948"]
 BAR_TRSP = ["rgba(78,121,167,0.60)", "rgba(242,142,43,0.60)", "rgba(89,161,79,0.60)"]
 
 # ===== Stake static values (example @ epoch=2, slot=800) =====
-STAKE_EPOCH = 2
+STAKE_EPOCH = 1
 STAKE_SLOT  = 799
 # Put stake for mains here; missing mains default to 0
 STAKE_RAW = {
-    "Be2ntZsJLQ0Kmp_KRv-281k-x5pWqnuUNNzFqsi35lQ.": 39_720_005_019_933_334,
-    "TgLaccJovUQPjgNcU1ZsS-tYrYnuNTRtjLdVvAqg3kI.": 29_820_802_299_333_335,
-    "Lb5sLN6alt5KcdMNE74onoOuQL8Y0eYgGZKqDOAUSTU.": 29_676_465_760_160_400,
+    "Be2ntZsJLQ0Kmp_KRv-281k-x5pWqnuUNNzFqsi35lQ.": 98_999_369_600_301_776,
+    "TgLaccJovUQPjgNcU1ZsS-tYrYnuNTRtjLdVvAqg3kI.": 0,
+    "Lb5sLN6alt5KcdMNE74onoOuQL8Y0eYgGZKqDOAUSTU.": 0,
 }
 
 # =========================
@@ -133,18 +133,19 @@ def build_summary_figure(state: dict) -> go.Figure:
     # --- Delivered blocks (overflows) ---
     op_epoch  = state.get("operationalRecord", {}).get(epoch_str, {})
     overflows = op_epoch.get("urlOverflowCounter", {}) or {}
-    bar_vals  = [int(overflows.get(a, {}).get("deliveredBlocks", 0)) for a in OVERFLOW_ADDRS]
+    raw_vals  = [int(overflows.get(a, {}).get("deliveredBlocks", 0)) for a in OVERFLOW_ADDRS]
     bar_names = [LABEL[a] for a in OVERFLOW_ADDRS]
-    total_deliv = max(sum(bar_vals), 1)
-    perc_text   = [f"{v:,.0f} ({v/total_deliv:.1%})" for v in bar_vals]
-    bar_colors  = [hex_to_rgba(PALETTE[i], 0.6) for i in range(3)]
+    total_deliv = max(sum(raw_vals), 1)
+
+    bar_vals   = [v / total_deliv for v in raw_vals]
+    perc_text  = [f"{v:,.0f} ({v/total_deliv:.1%})" for v in raw_vals]
+    bar_colors = [hex_to_rgba(PALETTE[i], 0.6) for i in range(3)]
 
     # --- Validated slots cumulative share (overflows) ---
     addr_to_slots = state.get("currentEpochSlotDistribution", {}) or {}
     T = MAX_SLOT + 1
     x = np.arange(T)
 
-    # Build indicators only for overflow list (zeros if missing)
     indicators = []
     for addr in OVERFLOW_ADDRS:
         slots = [s for s in addr_to_slots.get(addr, []) if 0 <= s <= MAX_SLOT]
@@ -152,11 +153,11 @@ def build_summary_figure(state: dict) -> go.Figure:
         if slots:
             v[slots] = 1
         indicators.append(v)
-    indicators = np.vstack(indicators)  # shape (3, T)
+    indicators = np.vstack(indicators)
 
-    cum_by_node = indicators.cumsum(axis=1)        # (3, T)
+    cum_by_node = indicators.cumsum(axis=1)
     cum_total   = cum_by_node.sum(axis=0)
-    cum_total   = np.where(cum_total == 0, 1, cum_total)  # avoid /0
+    cum_total   = np.where(cum_total == 0, 1, cum_total)
     shares      = cum_by_node / cum_total
 
     # --- Subplots ---
@@ -167,20 +168,20 @@ def build_summary_figure(state: dict) -> go.Figure:
         column_widths=[0.33, 0.67]
     )
 
-    # Bars (left)
+    # Bars
     fig.add_trace(
         go.Bar(
             x=bar_names, y=bar_vals,
             marker=dict(color=bar_colors, line=dict(width=1, color="black")),
             text=perc_text, textposition="outside",
-            hovertemplate="%{x}<br>Blocks: %{y:,.0f}<br>Share: %{customdata:.1%}<extra></extra>",
-            customdata=[v/total_deliv for v in bar_vals],
+            hovertemplate="%{x}<br>Blocks: %{customdata:,}<br>Share: %{y:.1%}<extra></extra>",
+            customdata=raw_vals,
             showlegend=False,
         ),
         row=1, col=1
     )
 
-    # Area (right)
+    # Area
     for i, addr in enumerate(OVERFLOW_ADDRS):
         name = LABEL[addr]
         line_color = PALETTE[i]
@@ -203,11 +204,13 @@ def build_summary_figure(state: dict) -> go.Figure:
         legend_title_text="Node",
         margin=dict(l=60, r=40, t=70, b=50),
     )
-    ymax = max(bar_vals) if any(bar_vals) else 1
-    fig.update_yaxes(range=[0, ymax * 1.15], tickformat=",", row=1, col=1)
+
+    fig.update_yaxes(range=[0, 1], tickformat=".0%", row=1, col=1)
     fig.update_yaxes(range=[0, 1], tickformat=".0%", row=1, col=2)
     fig.update_xaxes(range=[0, MAX_SLOT], row=1, col=2)
+
     return fig
+
 
 # =========================
 # Run
